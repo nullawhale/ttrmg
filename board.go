@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/fatih/color"
 	"os"
+	"strings"
 	"unicode"
 )
 
@@ -29,6 +30,8 @@ var green = color.New(color.FgGreen).SprintFunc()
 var purple = color.New(color.FgMagenta).SprintFunc()
 var gray = color.New(color.FgHiBlack).SprintFunc()
 var u = color.New(color.Underline).SprintFunc()
+
+var indent = 10
 
 func (db *database) readFromDB() error {
 	read, err := os.OpenFile(dbPath, os.O_RDONLY, 0666)
@@ -158,21 +161,27 @@ func (db *database) stat() string {
 		}
 	}
 
-	percent = done / inProgress * 100
+	percent = done * 100 / (done + inProgress)
 	return fmt.Sprintf(
-		"%d%% of all tasks complete\n%s done | %s in progress",
-		percent, green(done), purple(inProgress),
+		"%s%d%% of all tasks complete\n%s%s done | %s in progress\n",
+		strings.Repeat(" ", indent/2), percent,
+		strings.Repeat(" ", indent/2), green(done), purple(inProgress),
 	)
 }
 
 func (db *database) printDB() {
 	for _, board := range db.Boards {
-		fmt.Printf("@%s\n", u(board.Name))
+		fmt.Printf("%s@%s\n", strings.Repeat(" ", indent/2), u(board.Name))
 		for _, task := range board.Tasks {
+			var id = fmt.Sprintf("%d.", task.ID)
 			if task.Status {
-				fmt.Printf("\t%s \t %s %s\n", gray(fmt.Sprintf("%d.", task.ID)), green("[✓]"), gray(task.Text))
+				fmt.Printf("%s%s %s %s\n",
+					strings.Repeat(" ", indent-len(id)),
+					gray(id), green("[✓]"), gray(task.Text))
 			} else {
-				fmt.Printf("\t%s \t %s %s\n", gray(fmt.Sprintf("%d.", task.ID)), purple("[ ]"), task.Text)
+				fmt.Printf("%s%s %s %s\n",
+					strings.Repeat(" ", indent-len(id)),
+					gray(id), purple("[ ]"), task.Text)
 			}
 		}
 		fmt.Println()
