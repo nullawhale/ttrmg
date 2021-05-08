@@ -26,10 +26,6 @@ func main() {
 		os.Exit(0)
 	}
 
-	/*args := []string{
-		"-n", "Me",
-	}*/
-
 	if len(os.Args) == 1 {
 		if _, err := os.Stat(dbPath); err == nil {
 			database := database{}

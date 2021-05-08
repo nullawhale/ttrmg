@@ -88,7 +88,6 @@ func (db *database) addBoard(b *board) error {
 
 func (db *database) addTask(t *task, bName string) error {
 	var err error
-	//var b board
 	var maxID int64 = 0
 
 	// TODO: maybe it should be default(system) Board with default(system) name
@@ -97,8 +96,7 @@ func (db *database) addTask(t *task, bName string) error {
 	}
 
 	for _, board := range db.Boards {
-		if board.Name == bName {
-			//b = *board
+		if strings.ToLower(board.Name) == strings.ToLower(bName) {
 			for _, task := range board.Tasks {
 				if task.ID > maxID {
 					maxID = task.ID
@@ -127,10 +125,10 @@ func (db *database) addTask(t *task, bName string) error {
 
 func (db *database) checkTask(taskId int64, bName string) error {
 	var err error
+	bName = strings.ToLower(bName)
 
 	for _, board := range db.Boards {
-		if board.Name == bName {
-			//b = *board
+		if strings.ToLower(board.Name) == strings.ToLower(bName) {
 			for _, task := range board.Tasks {
 				if task.ID == taskId {
 					task.Status = true
