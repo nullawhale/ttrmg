@@ -33,26 +33,30 @@ var u = color.New(color.Underline).SprintFunc()
 
 var indent = 10
 
-func (db *database) readFromDB() error {
-	read, err := os.OpenFile(dbPath, os.O_RDONLY, 0666)
-	if err != nil {
-		return err
-	}
-	err = json.NewDecoder(read).Decode(&db)
-	return err
+func NewDatabase() *database {
+	return &database{[]*board{}}
 }
 
-func (db *database) writeToDB() error {
-	write, err := os.OpenFile(dbPath, os.O_WRONLY, 0666)
+func ReadDatabaseFromFile(name string) (*database, error) {
+	file, err := os.Open(name)
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	var db database
+	err = json.NewDecoder(file).Decode(&db)
+	return &db, err
+}
+
+func (db *database) WriteToFile(name string) error {
+	file, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE, 0600)
 	if err != nil {
 		return err
 	}
-	data, err := json.Marshal(&db)
-	if err != nil {
-		return err
-	}
-	_, err = write.Write(data)
-	return err
+	defer file.Close()
+
+	return json.NewEncoder(file).Encode(db)
 }
 
 func (db *database) addBoard(b *board) error {
@@ -82,7 +86,6 @@ func (db *database) addBoard(b *board) error {
 	b.ID = maxID + 1
 	db.Boards = append(db.Boards, b)
 
-	err = db.writeToDB()
 	return err
 }
 
@@ -92,7 +95,7 @@ func (db *database) addTask(t *task, bName string) error {
 
 	// TODO: maybe it should be default(system) Board with default(system) name
 	if len(db.Boards) == 0 {
-		err = db.addBoard(&board{Name: "My board", Status: false})
+		err = db.addBoard(&board{Name: bName, Status: false})
 	}
 
 	for _, board := range db.Boards {
@@ -104,7 +107,6 @@ func (db *database) addTask(t *task, bName string) error {
 			}
 			t.ID = maxID + 1
 			board.Tasks = append(board.Tasks, t)
-			err = db.writeToDB()
 			return err
 		}
 	}
@@ -132,7 +134,6 @@ func (db *database) checkTask(taskId int64, bName string) error {
 			for _, task := range board.Tasks {
 				if task.ID == taskId {
 					task.Status = true
-					err = db.writeToDB()
 					return err
 				}
 			}
@@ -186,3 +187,5 @@ func (db *database) printDB() {
 	}
 	fmt.Print(db.stat())
 }
+
+// vi:noet:ts=4:sw=4:
