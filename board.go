@@ -159,7 +159,9 @@ func (db *database) stat() string {
 			}
 		}
 	}
-
+	if done+inProgress == 0 {
+		return strings.Repeat(" ", indent/2) + "No tasks were found.\n"
+	}
 	percent = done * 100 / (done + inProgress)
 	return fmt.Sprintf(
 		"%s%d%% of all tasks complete\n%s%s done | %s in progress\n",

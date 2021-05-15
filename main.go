@@ -38,8 +38,6 @@ func main() {
 	}
 	defer db.WriteToFile(options.DbPath)
 
-	fmt.Println("db:", db)
-
 	if options.Task != "" {
 		if options.Board == "" {
 			fmt.Println("You must provide a name of board.")
@@ -55,9 +53,7 @@ func main() {
 			}
 			fmt.Printf("task \"%s\" is now added to your %s board.\n", options.Task, options.Board)
 		}
-	}
-
-	if options.CheckTask != "" {
+	} else if options.CheckTask != "" {
 		if options.Board == "" {
 			fmt.Println("You must provide a name of board.")
 			os.Exit(1)
@@ -72,6 +68,8 @@ func main() {
 			}
 			fmt.Printf("task with id %d from board %s checked as done\n", int64(id), options.Board)
 		}
+	} else {
+		db.printDB()
 	}
 }
 
