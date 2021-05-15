@@ -3,104 +3,76 @@ package main
 import (
 	"fmt"
 	"github.com/jessevdk/go-flags"
-	"log"
 	"os"
 	"strconv"
 )
 
-var dbPath = ".db.tt"
-
-var opts struct {
+type Options struct {
+	DbPath    string `long:"db-path" description:"Database path" default:".db.tt"`
 	Board     string `short:"b" long:"board" description:"Specify board name" required:"false"`
 	Task      string `short:"t" long:"task" description:"Specify task name" required:"false"`
 	CheckTask string `short:"c" long:"check" description:"Check task" required:"false"`
 }
 
+var options Options
+
+var parser = flags.NewParser(&options, flags.Default)
+
 func main() {
-
-	p := flags.NewParser(&opts, flags.Default)
-	if _, err := p.Parse(); err != nil {
-		if err.(*flags.Error).Type != flags.ErrHelp {
-			log.Printf("[ERROR] cli error: %v", err)
-		}
-		os.Exit(0)
-	}
-
-	if len(os.Args) == 1 {
-		if _, err := os.Stat(dbPath); err == nil {
-			database := database{}
-			err = database.readFromDB()
-			if err != nil {
-				fmt.Println("Unable to read db file:", err)
-				os.Exit(1)
-			}
-			database.printDB()
-		} else {
-			file, err := os.Create(dbPath)
-			if err != nil {
-				fmt.Println("Unable to create db file:", err)
-				os.Exit(1)
-			}
-			defer file.Close()
-			fmt.Println(file.Name())
-		}
-	}
-
-	_, err := flags.ParseArgs(&opts, os.Args)
+	_, err := parser.Parse()
 	if err != nil {
-		fmt.Println("Unable to parse args:", err)
+		if err.(*flags.Error).Type == flags.ErrHelp {
+			os.Exit(0)
+		}
+		parser.WriteHelp(os.Stderr)
 		os.Exit(1)
 	}
 
-	/*fmt.Printf("Board: %s\n", opts.Board)
-	fmt.Printf("Task: %s\n", opts.Task)
-	fmt.Printf("CheckTask: %s\n", opts.CheckTask)*/
+	db, err := ReadDatabaseFromFile(options.DbPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			db = NewDatabase()
+		} else {
+			panic(err)
+		}
+	}
+	defer db.WriteToFile(options.DbPath)
 
-	if opts.Task != "" {
-		if opts.Board == "" {
+	fmt.Println("db:", db)
+
+	if options.Task != "" {
+		if options.Board == "" {
 			fmt.Println("You must provide a name of board.")
 			os.Exit(1)
 		} else {
-			database := database{}
-			err := database.readFromDB()
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			err = database.addTask(&task{
+			err = db.addTask(&task{
 				ID:     0,
-				Text:   opts.Task,
+				Text:   options.Task,
 				Status: false,
-			}, opts.Board)
+			}, options.Board)
 			if err != nil {
 				fmt.Println(err)
 			}
-
-			fmt.Printf("task \"%s\" is now added to your %s board.\n", opts.Task, opts.Board)
+			fmt.Printf("task \"%s\" is now added to your %s board.\n", options.Task, options.Board)
 		}
 	}
 
-	if opts.CheckTask != "" {
-		if opts.Board == "" {
+	if options.CheckTask != "" {
+		if options.Board == "" {
 			fmt.Println("You must provide a name of board.")
 			os.Exit(1)
 		} else {
-			database := database{}
-			err := database.readFromDB()
+			id, err := strconv.Atoi(options.CheckTask)
 			if err != nil {
 				fmt.Println(err)
 			}
-
-			id, err := strconv.Atoi(opts.CheckTask)
+			err = db.checkTask(int64(id), options.Board)
 			if err != nil {
 				fmt.Println(err)
 			}
-			err = database.checkTask(int64(id), opts.Board)
-			if err != nil {
-				fmt.Println(err)
-			}
-
-			fmt.Printf("task with id %d from board %s checked as done\n", int64(id), opts.Board)
+			fmt.Printf("task with id %d from board %s checked as done\n", int64(id), options.Board)
 		}
 	}
 }
+
+// vi:noet:ts=4:sw=4:
