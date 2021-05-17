@@ -12,6 +12,7 @@ import (
 type Options struct {
 	DbPath    string   `long:"db-path" description:"Database path" default:".db.tt"`
 	New       struct{} `command:"new" alias:"todo" alias:"n" alias:"make" description:"Add new task" required:"false"`
+	List      struct{} `command:"list" alias:"l" alias:"ls" description:"List tasks" required:"false"`
 	Board     string   `short:"b" long:"board" description:"Specify board name" required:"false"`
 	Task      string   `short:"t" long:"task" description:"Specify task name" required:"false"`
 	CheckTask string   `short:"c" long:"check" description:"Check task" required:"false"`
@@ -54,7 +55,7 @@ func main() {
 	case "new":
 		db.NewTask(strings.Join(args, " "))
 	case "list":
-		db.printDB()
+		db.printDB(strings.Join(args, " "))
 	}
 
 	if options.CheckTask != "" {
