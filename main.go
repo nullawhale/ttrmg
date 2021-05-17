@@ -2,16 +2,19 @@ package main
 
 import (
 	"fmt"
-	"github.com/jessevdk/go-flags"
 	"os"
 	"strconv"
+	"strings"
+
+	"github.com/jessevdk/go-flags"
 )
 
 type Options struct {
-	DbPath    string `long:"db-path" description:"Database path" default:".db.tt"`
-	Board     string `short:"b" long:"board" description:"Specify board name" required:"false"`
-	Task      string `short:"t" long:"task" description:"Specify task name" required:"false"`
-	CheckTask string `short:"c" long:"check" description:"Check task" required:"false"`
+	DbPath    string   `long:"db-path" description:"Database path" default:".db.tt"`
+	New       struct{} `command:"new" alias:"todo" alias:"n" alias:"make" description:"Add new task" required:"false"`
+	Board     string   `short:"b" long:"board" description:"Specify board name" required:"false"`
+	Task      string   `short:"t" long:"task" description:"Specify task name" required:"false"`
+	CheckTask string   `short:"c" long:"check" description:"Check task" required:"false"`
 }
 
 var options Options
@@ -19,7 +22,8 @@ var options Options
 var parser = flags.NewParser(&options, flags.Default)
 
 func main() {
-	_, err := parser.Parse()
+	parser.Command.SubcommandsOptional = true
+	args, err := parser.Parse()
 	if err != nil {
 		if err.(*flags.Error).Type == flags.ErrHelp {
 			os.Exit(0)
@@ -38,22 +42,22 @@ func main() {
 	}
 	defer db.WriteToFile(options.DbPath)
 
-	if options.Task != "" {
-		if options.Board == "" {
-			fmt.Println("You must provide a name of board.")
-			os.Exit(1)
-		} else {
-			err = db.addTask(&task{
-				ID:     0,
-				Text:   options.Task,
-				Status: false,
-			}, options.Board)
-			if err != nil {
-				fmt.Println(err)
-			}
-			fmt.Printf("task \"%s\" is now added to your %s board.\n", options.Task, options.Board)
-		}
-	} else if options.CheckTask != "" {
+	var command string
+	if parser.Active != nil {
+		command = parser.Active.Name
+	} else if len(args) == 0 {
+		command = "list"
+	} else {
+		command = "new"
+	}
+	switch command {
+	case "new":
+		db.NewTask(strings.Join(args, " "))
+	case "list":
+		db.printDB()
+	}
+
+	if options.CheckTask != "" {
 		if options.Board == "" {
 			fmt.Println("You must provide a name of board.")
 			os.Exit(1)
@@ -68,8 +72,6 @@ func main() {
 			}
 			fmt.Printf("task with id %d from board %s checked as done\n", int64(id), options.Board)
 		}
-	} else {
-		db.printDB()
 	}
 }
 

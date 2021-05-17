@@ -89,6 +89,10 @@ func (db *database) addBoard(b *board) error {
 	return err
 }
 
+func (db *database) NewTask(text string) {
+	db.addTask(&task{Text: text}, "actual")
+}
+
 func (db *database) addTask(t *task, bName string) error {
 	var err error
 	var maxID int64 = 0
