@@ -3,10 +3,12 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/fatih/color"
 	"os"
 	"strings"
 	"unicode"
+
+	"github.com/fatih/color"
+	"github.com/lithammer/fuzzysearch/fuzzy"
 )
 
 type database struct {
@@ -87,6 +89,10 @@ func (db *database) addBoard(b *board) error {
 	db.Boards = append(db.Boards, b)
 
 	return err
+}
+
+func (db *database) NewTask(text string) {
+	db.addTask(&task{Text: text}, "actual")
 }
 
 func (db *database) addTask(t *task, bName string) error {
@@ -170,19 +176,21 @@ func (db *database) stat() string {
 	)
 }
 
-func (db *database) printDB() {
+func (db *database) printDB(pattern string) {
 	for _, board := range db.Boards {
 		fmt.Printf("%s@%s\n", strings.Repeat(" ", indent/2), u(board.Name))
 		for _, task := range board.Tasks {
-			var id = fmt.Sprintf("%d.", task.ID)
-			if task.Status {
-				fmt.Printf("%s%s %s %s\n",
-					strings.Repeat(" ", indent-len(id)),
-					gray(id), green("[✓]"), gray(task.Text))
-			} else {
-				fmt.Printf("%s%s %s %s\n",
-					strings.Repeat(" ", indent-len(id)),
-					gray(id), purple("[ ]"), task.Text)
+			if fuzzy.Match(pattern, task.Text) {
+				var id = fmt.Sprintf("%d.", task.ID)
+				if task.Status {
+					fmt.Printf("%s%s %s %s\n",
+						strings.Repeat(" ", indent-len(id)),
+						gray(id), green("[✓]"), gray(task.Text))
+				} else {
+					fmt.Printf("%s%s %s %s\n",
+						strings.Repeat(" ", indent-len(id)),
+						gray(id), purple("[ ]"), task.Text)
+				}
 			}
 		}
 		fmt.Println()
