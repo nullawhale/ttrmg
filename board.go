@@ -91,8 +91,13 @@ func (db *database) addBoard(b *board) error {
 	return err
 }
 
-func (db *database) NewTask(text string) {
-	db.addTask(&task{Text: text}, "actual")
+func (db *database) NewTask(text string) error {
+	err := db.addTask(&task{Text: text}, "actual")
+	if err != nil {
+		return err
+	}
+
+	return err
 }
 
 func (db *database) addTask(t *task, bName string) error {
@@ -101,12 +106,19 @@ func (db *database) addTask(t *task, bName string) error {
 
 	// TODO: maybe it should be default(system) Board with default(system) name
 	if len(db.Boards) == 0 {
-		err = db.addBoard(&board{Name: bName, Status: false})
+		err := db.addBoard(&board{Name: bName, Status: false})
+		if err != nil {
+			return err
+		}
 	}
 
 	for _, board := range db.Boards {
 		if strings.ToLower(board.Name) == strings.ToLower(bName) {
 			for _, task := range board.Tasks {
+				if task.Text == t.Text {
+					fmt.Println("task already exists")
+					return err
+				}
 				if task.ID > maxID {
 					maxID = task.ID
 				}
@@ -131,19 +143,27 @@ func (db *database) addTask(t *task, bName string) error {
 	return err
 }
 
-func (db *database) checkTask(taskId int64, bName string) error {
+func (db *database) checkTask(taskPattern string) error {
 	var err error
-	bName = strings.ToLower(bName)
+	var matchedTask *task
 
 	for _, board := range db.Boards {
-		if strings.ToLower(board.Name) == strings.ToLower(bName) {
-			for _, task := range board.Tasks {
-				if task.ID == taskId {
-					task.Status = true
-					return err
+		for _, task := range board.Tasks {
+			if fuzzy.MatchFold(taskPattern, task.Text) && fuzzy.RankMatch(taskPattern, task.Text) == 0 {
+				if matchedTask != nil {
+					return fmt.Errorf("found more than one tasks, specify the task text")
 				}
+				matchedTask = task
 			}
 		}
+	}
+
+	if matchedTask != nil {
+		matchedTask.Status = true
+		//fmt.Printf("task \"%s\" checked as done\n", matchedTask.Text)
+		db.printDB("")
+	} else {
+		return fmt.Errorf("task not found")
 	}
 
 	return err
@@ -180,7 +200,7 @@ func (db *database) printDB(pattern string) {
 	for _, board := range db.Boards {
 		fmt.Printf("%s@%s\n", strings.Repeat(" ", indent/2), u(board.Name))
 		for _, task := range board.Tasks {
-			if fuzzy.Match(pattern, task.Text) {
+			if fuzzy.MatchFold(pattern, task.Text) {
 				var id = fmt.Sprintf("%d.", task.ID)
 				if task.Status {
 					fmt.Printf("%s%s %s %s\n",
