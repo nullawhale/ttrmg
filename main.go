@@ -3,19 +3,16 @@ package main
 import (
 	"fmt"
 	"os"
-	"strconv"
 	"strings"
 
 	"github.com/jessevdk/go-flags"
 )
 
 type Options struct {
-	DbPath    string   `long:"db-path" description:"Database path" default:".db.tt"`
-	New       struct{} `command:"new" alias:"todo" alias:"n" alias:"make" description:"Add new task" required:"false"`
-	List      struct{} `command:"list" alias:"l" alias:"ls" description:"List tasks" required:"false"`
-	Board     string   `short:"b" long:"board" description:"Specify board name" required:"false"`
-	Task      string   `short:"t" long:"task" description:"Specify task name" required:"false"`
-	CheckTask string   `short:"c" long:"check" description:"Check task" required:"false"`
+	DbPath string   `long:"db-path" description:"Database path" default:".db.tt"`
+	New    struct{} `command:"new" alias:"todo" alias:"n" alias:"make" description:"Add new task" required:"false"`
+	List   struct{} `command:"list" alias:"l" alias:"ls" description:"List tasks" required:"false"`
+	Done   struct{} `command:"done" alias:"d" description:"Check task as done" required:"false"`
 }
 
 var options Options
@@ -53,25 +50,16 @@ func main() {
 	}
 	switch command {
 	case "new":
-		db.NewTask(strings.Join(args, " "))
+		err := db.NewTask(strings.Join(args, " "))
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 	case "list":
 		db.printDB(strings.Join(args, " "))
-	}
-
-	if options.CheckTask != "" {
-		if options.Board == "" {
-			fmt.Println("You must provide a name of board.")
-			os.Exit(1)
-		} else {
-			id, err := strconv.Atoi(options.CheckTask)
-			if err != nil {
-				fmt.Println(err)
-			}
-			err = db.checkTask(int64(id), options.Board)
-			if err != nil {
-				fmt.Println(err)
-			}
-			fmt.Printf("task with id %d from board %s checked as done\n", int64(id), options.Board)
+	case "done":
+		err := db.checkTask(strings.Join(args, " "))
+		if err != nil {
+			fmt.Println(err.Error())
 		}
 	}
 }
