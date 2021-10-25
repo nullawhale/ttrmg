@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/manifoldco/promptui"
 	"os"
 	"strings"
 	"unicode"
@@ -145,23 +146,49 @@ func (db *database) addTask(t *task, bName string) error {
 
 func (db *database) checkTask(taskPattern string) error {
 	var err error
-	var matchedTask *task
+	var matchedTasks []*task
 
 	for _, board := range db.Boards {
 		for _, task := range board.Tasks {
-			if fuzzy.MatchFold(taskPattern, task.Text) && fuzzy.RankMatch(taskPattern, task.Text) == 0 {
-				if matchedTask != nil {
-					return fmt.Errorf("found more than one tasks, specify the task text")
+			if task.Status != true {
+				if fuzzy.MatchFold(taskPattern, task.Text) && fuzzy.RankMatch(taskPattern, task.Text) >= 0 {
+					matchedTasks = append(matchedTasks, task)
 				}
-				matchedTask = task
 			}
 		}
 	}
 
-	if matchedTask != nil {
-		matchedTask.Status = true
+	if matchedTasks != nil {
+		if len(matchedTasks) == 1 {
+			matchedTasks[0].Status = true
+			db.printDB("")
+		} else {
+			var s []string
+			var foundTaskString string
+			for _, task := range matchedTasks {
+				//fmt.Printf("%s\n", task.Text)
+				s = append(s, task.Text)
+			}
+			prompt := promptui.Select{
+				Label: "Found more than one task. Select one:",
+				Items: s,
+			}
+
+			_, foundTaskString, err = prompt.Run()
+			if err != nil {
+				return fmt.Errorf("Prompt failed %v\n", err)
+			}
+
+			for _, board := range db.Boards {
+				for _, task := range board.Tasks {
+					if foundTaskString == task.Text {
+						task.Status = true
+						db.printDB("")
+					}
+				}
+			}
+		}
 		//fmt.Printf("task \"%s\" checked as done\n", matchedTask.Text)
-		db.printDB("")
 	} else {
 		return fmt.Errorf("task not found")
 	}
