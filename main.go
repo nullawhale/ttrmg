@@ -13,11 +13,12 @@ type Options struct {
 	New    struct{} `command:"new" alias:"todo" alias:"n" alias:"make" description:"Add new task" required:"false"`
 	List   struct{} `command:"list" alias:"l" alias:"ls" description:"List tasks" required:"false"`
 	Done   struct{} `command:"done" alias:"d" description:"Check task as done" required:"false"`
+	Remove struct{} `command:"rm" alias:"r" description:"Remove task" required:"false"`
 }
 
-var options Options
+var opts Options
 
-var parser = flags.NewParser(&options, flags.Default)
+var parser = flags.NewParser(&opts, flags.Default)
 
 func main() {
 	parser.Command.SubcommandsOptional = true
@@ -30,7 +31,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	db, err := ReadDatabaseFromFile(options.DbPath)
+	db, err := ReadDatabaseFromFile(opts.DbPath)
 	if err != nil {
 		if os.IsNotExist(err) {
 			db = NewDatabase()
@@ -38,7 +39,7 @@ func main() {
 			panic(err)
 		}
 	}
-	defer db.WriteToFile(options.DbPath)
+	defer db.WriteToFile(opts.DbPath)
 
 	var command string
 	if parser.Active != nil {
@@ -48,9 +49,10 @@ func main() {
 	} else {
 		command = "new"
 	}
+
 	switch command {
 	case "new":
-		err := db.NewTask(strings.Join(args, " "))
+		err := db.addTask(strings.Join(args, " "), "actual")
 		if err != nil {
 			fmt.Println(err.Error())
 		}
@@ -58,6 +60,11 @@ func main() {
 		db.printDB(strings.Join(args, " "))
 	case "done":
 		err := db.checkTask(strings.Join(args, " "))
+		if err != nil {
+			fmt.Println(err.Error())
+		}
+	case "rm":
+		err := db.rmTask(strings.Join(args, " "))
 		if err != nil {
 			fmt.Println(err.Error())
 		}
