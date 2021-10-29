@@ -110,40 +110,40 @@ func (db *Database) checkTask(taskPattern string) error {
 		}
 	}
 
-	if matchedTasks != nil {
-		if len(matchedTasks) == 1 {
-			matchedTasks[0].Status = true
-			db.printDB("")
-		} else {
-			var s []string
-			var foundTaskString string
-			for _, task := range matchedTasks {
-				//fmt.Printf("%s\n", task.Text)
-				s = append(s, task.Text)
-			}
-			prompt := promptui.Select{
-				Label: "Found more than one task. Select one:",
-				Items: s,
-			}
+	if matchedTasks == nil {
+		return fmt.Errorf("task not found")
+	}
 
-			_, foundTaskString, err = prompt.Run()
-			if err != nil {
-				return fmt.Errorf("Prompt failed %v\n", err)
-			}
+	if len(matchedTasks) == 1 {
+		matchedTasks[0].Status = true
+		db.printDB("")
+	} else {
+		var s []string
+		var foundTaskString string
+		for _, task := range matchedTasks {
+			//fmt.Printf("%s\n", task.Text)
+			s = append(s, task.Text)
+		}
+		prompt := promptui.Select{
+			Label: "Found more than one task. Select one:",
+			Items: s,
+		}
 
-			for _, board := range db.Boards {
-				for _, task := range board.Tasks {
-					if foundTaskString == task.Text {
-						task.Status = true
-						db.printDB("")
-					}
+		_, foundTaskString, err = prompt.Run()
+		if err != nil {
+			return fmt.Errorf("Prompt failed %v\n", err)
+		}
+
+		for _, board := range db.Boards {
+			for _, task := range board.Tasks {
+				if foundTaskString == task.Text {
+					task.Status = true
+					db.printDB("")
 				}
 			}
 		}
-		//fmt.Printf("task \"%s\" checked as done\n", matchedTask.Text)
-	} else {
-		return fmt.Errorf("task not found")
 	}
+	//fmt.Printf("task \"%s\" checked as done\n", matchedTask.Text)
 
 	return err
 }
@@ -167,35 +167,35 @@ func (db *Database) rmTask(taskPattern string) error {
 		}
 	}
 
-	if matchedTasks != nil {
-		if len(matchedTasks) == 1 {
-			db.deleteTask(matchedTasks[0].Board, matchedTasks[0].Index)
-			db.printDB("")
-		} else {
-			var s []string
-			var foundTaskString string
-			for _, task := range matchedTasks {
-				s = append(s, task.Text)
-			}
-			prompt := promptui.Select{
-				Label: "Found more than one task. Select one:",
-				Items: s,
-			}
+	if matchedTasks == nil {
+		return fmt.Errorf("no matched task found")
+	}
 
-			_, foundTaskString, err = prompt.Run()
-			if err != nil {
-				return fmt.Errorf("Prompt failed %v\n", err)
-			}
+	if len(matchedTasks) == 1 {
+		db.deleteTask(matchedTasks[0].Board, matchedTasks[0].Index)
+		db.printDB("")
+	} else {
+		var s []string
+		var foundTaskString string
+		for _, task := range matchedTasks {
+			s = append(s, task.Text)
+		}
+		prompt := promptui.Select{
+			Label: "Found more than one task. Select one:",
+			Items: s,
+		}
 
-			for i, task := range matchedTasks {
-				if foundTaskString == task.Text {
-					db.deleteTask(task.Board, i)
-					db.printDB("")
-				}
+		_, foundTaskString, err = prompt.Run()
+		if err != nil {
+			return fmt.Errorf("Prompt failed %v\n", err)
+		}
+
+		for i, task := range matchedTasks {
+			if foundTaskString == task.Text {
+				db.deleteTask(task.Board, i)
+				db.printDB("")
 			}
 		}
-	} else {
-		return fmt.Errorf("task not found")
 	}
 
 	return err
@@ -227,6 +227,7 @@ func (db *Database) stat() string {
 			}
 		}
 	}
+
 	if done+inProgress == 0 {
 		return strings.Repeat(" ", indent/2) + "No tasks were found.\n"
 	}
