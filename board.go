@@ -110,14 +110,14 @@ func (db *Database) checkTask(taskPattern string) error {
 		}
 	}
 
-	if matchedTasks == nil {
+	switch len(matchedTasks) {
+	case 0:
 		return fmt.Errorf("task not found")
-	}
-
-	if len(matchedTasks) == 1 {
+	case 1:
 		matchedTasks[0].Status = true
 		db.printDB("")
-	} else {
+		break
+	default:
 		var s []string
 		var foundTaskString string
 		for _, task := range matchedTasks {
@@ -167,14 +167,14 @@ func (db *Database) rmTask(taskPattern string) error {
 		}
 	}
 
-	if matchedTasks == nil {
+	switch len(matchedTasks) {
+	case 0:
 		return fmt.Errorf("no matched task found")
-	}
-
-	if len(matchedTasks) == 1 {
+	case 1:
 		db.deleteTask(matchedTasks[0].Board, matchedTasks[0].Index)
 		db.printDB("")
-	} else {
+		break
+	default:
 		var s []string
 		var foundTaskString string
 		for _, task := range matchedTasks {
@@ -196,6 +196,7 @@ func (db *Database) rmTask(taskPattern string) error {
 				db.printDB("")
 			}
 		}
+		break
 	}
 
 	return err
