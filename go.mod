@@ -8,4 +8,5 @@ require (
 	github.com/lithammer/fuzzysearch v1.1.2 // indirect
 	github.com/manifoldco/promptui v0.8.0 // indirect
 	github.com/urfave/cli v1.22.5
+	go.mongodb.org/mongo-driver v1.7.3 // indirect
 )

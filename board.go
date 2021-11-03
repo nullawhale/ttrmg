@@ -1,33 +1,14 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/manifoldco/promptui"
-	"os"
 	"strings"
 	"unicode"
 
 	"github.com/fatih/color"
 	"github.com/lithammer/fuzzysearch/fuzzy"
 )
-
-type database struct {
-	Boards []*board `json:"boards"`
-}
-
-type board struct {
-	ID     int64   `json:"id"`
-	Name   string  `json:"name"`
-	Status bool    `json:"status"`
-	Tasks  []*task `json:"tasks"`
-}
-
-type task struct {
-	ID     int64  `json:"id"`
-	Text   string `json:"name"`
-	Status bool   `json:"status"`
-}
 
 var green = color.New(color.FgGreen).SprintFunc()
 var purple = color.New(color.FgMagenta).SprintFunc()
@@ -36,33 +17,7 @@ var u = color.New(color.Underline).SprintFunc()
 
 var indent = 10
 
-func NewDatabase() *database {
-	return &database{[]*board{}}
-}
-
-func ReadDatabaseFromFile(name string) (*database, error) {
-	file, err := os.Open(name)
-	if err != nil {
-		return nil, err
-	}
-	defer file.Close()
-
-	var db database
-	err = json.NewDecoder(file).Decode(&db)
-	return &db, err
-}
-
-func (db *database) WriteToFile(name string) error {
-	file, err := os.OpenFile(name, os.O_WRONLY|os.O_CREATE, 0600)
-	if err != nil {
-		return err
-	}
-	defer file.Close()
-
-	return json.NewEncoder(file).Encode(db)
-}
-
-func (db *database) addBoard(b *board) error {
+func (db *Database) addBoard(b *Board) error {
 	var err error
 	var maxID int64 = 0
 
@@ -92,22 +47,19 @@ func (db *database) addBoard(b *board) error {
 	return err
 }
 
-func (db *database) NewTask(text string) error {
-	err := db.addTask(&task{Text: text}, "actual")
+func (db *Database) addTask(text string, bName string) error {
+	var err error
+	var task *Task
+	var maxID int64 = 0
+
+	task = &Task{Text: text}
 	if err != nil {
 		return err
 	}
 
-	return err
-}
-
-func (db *database) addTask(t *task, bName string) error {
-	var err error
-	var maxID int64 = 0
-
 	// TODO: maybe it should be default(system) Board with default(system) name
 	if len(db.Boards) == 0 {
-		err := db.addBoard(&board{Name: bName, Status: false})
+		err := db.addBoard(&Board{Name: bName, Status: false})
 		if err != nil {
 			return err
 		}
@@ -116,7 +68,7 @@ func (db *database) addTask(t *task, bName string) error {
 	for _, board := range db.Boards {
 		if strings.ToLower(board.Name) == strings.ToLower(bName) {
 			for _, task := range board.Tasks {
-				if task.Text == t.Text {
+				if task.Text == task.Text {
 					fmt.Println("task already exists")
 					return err
 				}
@@ -124,8 +76,8 @@ func (db *database) addTask(t *task, bName string) error {
 					maxID = task.ID
 				}
 			}
-			t.ID = maxID + 1
-			board.Tasks = append(board.Tasks, t)
+			task.ID = maxID + 1
+			board.Tasks = append(board.Tasks, task)
 			return err
 		}
 	}
@@ -144,9 +96,9 @@ func (db *database) addTask(t *task, bName string) error {
 	return err
 }
 
-func (db *database) checkTask(taskPattern string) error {
+func (db *Database) checkTask(taskPattern string) error {
 	var err error
-	var matchedTasks []*task
+	var matchedTasks []*Task
 
 	for _, board := range db.Boards {
 		for _, task := range board.Tasks {
@@ -158,45 +110,109 @@ func (db *database) checkTask(taskPattern string) error {
 		}
 	}
 
-	if matchedTasks != nil {
-		if len(matchedTasks) == 1 {
-			matchedTasks[0].Status = true
-			db.printDB("")
-		} else {
-			var s []string
-			var foundTaskString string
-			for _, task := range matchedTasks {
-				//fmt.Printf("%s\n", task.Text)
-				s = append(s, task.Text)
-			}
-			prompt := promptui.Select{
-				Label: "Found more than one task. Select one:",
-				Items: s,
-			}
+	switch len(matchedTasks) {
+	case 0:
+		return fmt.Errorf("task not found")
+	case 1:
+		matchedTasks[0].Status = true
+		db.printDB("")
+		break
+	default:
+		var s []string
+		var foundTaskString string
+		for _, task := range matchedTasks {
+			//fmt.Printf("%s\n", task.Text)
+			s = append(s, task.Text)
+		}
+		prompt := promptui.Select{
+			Label: "Found more than one task. Select one:",
+			Items: s,
+		}
 
-			_, foundTaskString, err = prompt.Run()
-			if err != nil {
-				return fmt.Errorf("Prompt failed %v\n", err)
-			}
+		_, foundTaskString, err = prompt.Run()
+		if err != nil {
+			return fmt.Errorf("Prompt failed %v\n", err)
+		}
 
-			for _, board := range db.Boards {
-				for _, task := range board.Tasks {
-					if foundTaskString == task.Text {
-						task.Status = true
-						db.printDB("")
-					}
+		for _, board := range db.Boards {
+			for _, task := range board.Tasks {
+				if foundTaskString == task.Text {
+					task.Status = true
+					db.printDB("")
 				}
 			}
 		}
-		//fmt.Printf("task \"%s\" checked as done\n", matchedTask.Text)
-	} else {
-		return fmt.Errorf("task not found")
+	}
+	//fmt.Printf("task \"%s\" checked as done\n", matchedTask.Text)
+
+	return err
+}
+
+func (db *Database) rmTask(taskPattern string) error {
+	var err error
+
+	type ResTask struct {
+		Text  string
+		Board string
+		Index int
+	}
+
+	var matchedTasks []ResTask
+
+	for _, board := range db.Boards {
+		for i, task := range board.Tasks {
+			if fuzzy.MatchFold(taskPattern, task.Text) && fuzzy.RankMatch(taskPattern, task.Text) >= 0 {
+				matchedTasks = append(matchedTasks, ResTask{task.Text, board.Name, i})
+			}
+		}
+	}
+
+	switch len(matchedTasks) {
+	case 0:
+		return fmt.Errorf("no matched task found")
+	case 1:
+		db.deleteTask(matchedTasks[0].Board, matchedTasks[0].Index)
+		db.printDB("")
+		break
+	default:
+		var s []string
+		var foundTaskString string
+		for _, task := range matchedTasks {
+			s = append(s, task.Text)
+		}
+		prompt := promptui.Select{
+			Label: "Found more than one task. Select one:",
+			Items: s,
+		}
+
+		_, foundTaskString, err = prompt.Run()
+		if err != nil {
+			return fmt.Errorf("Prompt failed %v\n", err)
+		}
+
+		for i, task := range matchedTasks {
+			if foundTaskString == task.Text {
+				db.deleteTask(task.Board, i)
+				db.printDB("")
+			}
+		}
+		break
 	}
 
 	return err
 }
 
-func (db *database) stat() string {
+func (db *Database) deleteTask(boardName string, i int) {
+	for _, board := range db.Boards {
+		if boardName == board.Name {
+			if len(board.Tasks) != 0 {
+				board.Tasks = append(board.Tasks[:i], board.Tasks[i+1:]...)
+			}
+		}
+	}
+}
+
+func (db *Database) stat() string {
 	var done int64 = 0
 	var inProgress int64 = 0
 	var percent int64 = 0
@@ -212,6 +228,7 @@ func (db *database) stat() string {
 			}
 		}
 	}
+
 	if done+inProgress == 0 {
 		return strings.Repeat(" ", indent/2) + "No tasks were found.\n"
 	}
@@ -223,7 +240,7 @@ func (db *database) stat() string {
 	)
 }
 
-func (db *database) printDB(pattern string) {
+func (db *Database) printDB(pattern string) {
 	for _, board := range db.Boards {
 		fmt.Printf("%s@%s\n", strings.Repeat(" ", indent/2), u(board.Name))
 		for _, task := range board.Tasks {
