@@ -2,10 +2,9 @@ package main
 
 import (
 	"fmt"
+	"github.com/jessevdk/go-flags"
 	"os"
 	"strings"
-
-	"github.com/jessevdk/go-flags"
 )
 
 type Options struct {
@@ -38,6 +37,10 @@ func main() {
 			panic(err)
 		}
 	}
+	db, err = db.reCalcTasks()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
 	defer db.WriteToFile(options.DbPath)
 
 	var command string
@@ -50,14 +53,14 @@ func main() {
 	}
 	switch command {
 	case "new":
-		err := db.NewTask(strings.Join(args, " "))
+		err = db.NewTask(strings.Join(args, " "))
 		if err != nil {
 			fmt.Println(err.Error())
 		}
 	case "list":
 		db.printDB(strings.Join(args, " "))
 	case "done":
-		err := db.checkTask(strings.Join(args, " "))
+		err = db.checkTask(strings.Join(args, " "))
 		if err != nil {
 			fmt.Println(err.Error())
 		}
